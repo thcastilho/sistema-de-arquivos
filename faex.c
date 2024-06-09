@@ -45,6 +45,7 @@ typedef struct dir
 {
     char direname[MAX_NAME_LENGTH];
     int sector;
+    struct tm *creation_time;
     int qtd_subdir;
     struct dir *subdirectories[TOTAL_SECTORS];
     file_pointer *head;
@@ -157,6 +158,11 @@ void makeDir(char *path) {
                 }
                 new_dir->head = NULL;
 
+                // Obtém o tempo atual
+                time_t segundos;
+                time(&segundos);
+                new_dir->creation_time = localtime(&segundos);
+
                 pwd->subdirectories[pwd->qtd_subdir] = new_dir;
                 pwd->qtd_subdir += 1;
                 pwd = new_dir;
@@ -171,9 +177,152 @@ void makeDir(char *path) {
     }
 }
 
-void makeFile()
-{
-    printf("cria arquivo\n");
+directory* findDirectory(char *path) {
+    if (strcmp(path, "") == 0) {
+        return &root;
+    }
+
+    int i = 0;
+    int j;
+    int depth = 0;
+
+    for (i = 0; i < strlen(path); i++) {
+        if (path[i] == '\\') {
+            depth++;
+        }
+    }
+
+    i = 0;
+    char *arglist[depth + 1];
+
+    char *token;
+    token = strtok(path, "\\");
+    while (token != NULL) {
+        arglist[i] = token;
+        token = strtok(NULL, "\\");
+        i++;
+    }
+
+    directory *pwd = &root;
+
+    for (i = 0; i <= depth; i++) {
+        int found = 0;
+
+        for (j = 0; j < pwd->qtd_subdir; j++) {
+            if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0) {
+                pwd = pwd->subdirectories[j];
+                found = 1;
+                break;
+            }
+        }
+
+        if (!found) {
+            printf("ERRO: O diretório %s não existe!\n", arglist[i]);
+            return NULL;
+        }
+    }
+
+    return pwd;
+}
+
+void createFile(char *full_path) {
+    char path[MAX_NAME_LENGTH] = "";
+    char filename[MAX_NAME_LENGTH];
+
+    // Extrai o nome do arquivo e o caminho do diretório
+    char *last_backslash = strrchr(full_path, '\\');
+    if (last_backslash == NULL) {
+        strcpy(filename, full_path);
+    } else {
+        strncpy(path, full_path, last_backslash - full_path);
+        path[last_backslash - full_path] = '\0';
+        strcpy(filename, last_backslash + 1);
+    }
+
+    // Encontra o diretório especificado
+    directory *dir = findDirectory(path);
+    if (dir == NULL) {
+        return;
+    }
+
+    // Verifica se um arquivo com o mesmo nome já existe no diretório
+    file_pointer *fp = dir->head;
+    while (fp != NULL) {
+        if (strcmp(fp->fp->filename, filename) == 0) {
+            printf("ERRO: O arquivo %s já existe!\n", filename);
+            return;
+        }
+        fp = fp->next;
+    }
+
+    // Pergunta ao usuário o tamanho do arquivo
+    int filesize;
+    printf("Digite o tamanho do arquivo em bytes: ");
+    scanf("%d", &filesize);
+
+    // Cria um novo arquivo e aloca memória para ele
+    file *new_file = (file *)malloc(sizeof(file));
+    if (new_file == NULL) {
+        printf("Erro ao alocar memória para new_file\n");
+        exit(1);
+    }
+
+    strcpy(new_file->filename, filename);
+    new_file->filesize = filesize;
+
+    // Obtém o tempo atual
+    time_t segundos;
+    time(&segundos);
+    new_file->creation_time = localtime(&segundos);
+
+    // Calcula a quantidade de setores necessários para armazenar o arquivo
+    int sectors_needed = (filesize + SECTOR_SIZE - 1) / SECTOR_SIZE;
+    FAT *current_fat = NULL;
+
+    for (int i = 0; i < sectors_needed; i++) {
+        int sector_found = 0;
+        for (int j = RESERVED_SECTORS; j < TOTAL_SECTORS; j++) {
+            if (bitmap[j] == 0) {
+                bitmap[j] = 1;
+                FAT *new_fat = (FAT *)malloc(sizeof(FAT));
+                if (new_fat == NULL) {
+                    printf("Erro ao alocar memória para new_fat\n");
+                    exit(1);
+                }
+                new_fat->index = j;
+                new_fat->next = NULL;
+
+                if (current_fat == NULL) {
+                    new_file->list = new_fat;
+                } else {
+                    current_fat->next = new_fat;
+                }
+                current_fat = new_fat;
+
+                sector_found = 1;
+                break;
+            }
+        }
+
+        if (!sector_found) {
+            printf("ERRO: O sistema está cheio!\n");
+            free(new_file);
+            return;
+        }
+    }
+
+    // Adiciona o arquivo à lista de arquivos do diretório
+    file_pointer *new_fp = (file_pointer *)malloc(sizeof(file_pointer));
+    if (new_fp == NULL) {
+        printf("Erro ao alocar memória para new_fp\n");
+        exit(1);
+    }
+
+    new_fp->fp = new_file;
+    new_fp->next = dir->head;
+    dir->head = new_fp;
+
+    printf("Criou arquivo %s de tamanho %d bytes\n", new_file->filename, new_file->filesize);
 }
 
 void removeDir(char *path) {
@@ -240,92 +389,167 @@ void removeDir(char *path) {
     printf("Diretório removido com sucesso!\n");
 }
 
-void removeFile()
-{
-    printf("remove arquivo\n");
+void deleteFile(char *full_path) {
+    char path[MAX_NAME_LENGTH] = "";
+    char filename[MAX_NAME_LENGTH];
+
+    char *last_backslash = strrchr(full_path, '\\');
+    if (last_backslash == NULL) {
+        strcpy(filename, full_path);
+    } else {
+        strncpy(path, full_path, last_backslash - full_path);
+        path[last_backslash - full_path] = '\0';
+        strcpy(filename, last_backslash + 1);
+    }
+
+    directory *dir = findDirectory(path);
+    if (dir == NULL) {
+        return;
+    }
+
+    file_pointer *prev_fp = NULL;
+    file_pointer *fp = dir->head;
+
+    while (fp != NULL) {
+        if (strcmp(fp->fp->filename, filename) == 0) {
+            if (prev_fp == NULL) {
+                dir->head = fp->next;
+            } else {
+                prev_fp->next = fp->next;
+            }
+
+            FAT *current_fat = fp->fp->list;
+            while (current_fat != NULL) {
+                bitmap[current_fat->index] = 0;
+                FAT *temp_fat = current_fat;
+                current_fat = current_fat->next;
+                free(temp_fat);
+            }
+
+            free(fp->fp);
+            free(fp);
+
+            printf("Arquivo %s excluído\n", filename);
+            return;
+        }
+
+        prev_fp = fp;
+        fp = fp->next;
+    }
+
+    printf("ERRO: O arquivo %s não foi encontrado!\n", filename);
 }
 
 void seeDirectory(char *path)
 {
-    // int i = 0;
-    // char *arglist[TOTAL_SECTORS];
-    // char *token;
-    // while (strtok(path, "\\") != NULL)
-    // {
-    //     arglist[++i] = strtok(path, "\\");
-    //     printf("argumento %d \n", i);
-    // }
+    directory *dir = findDirectory(path);
+    if (dir == NULL) {
+        return;
+    }
 
-    // directory pwd = root;
-    // int path_length = i;
-    // int current_arg = 0;
+    int total_files = 0;
+    int total_dirs = 0;
+    int total_file_size = 0;
 
-    // while (current_arg < path_length)
-    // {
-    //     // busca o diretorio no indice do current_arg dentro do root
-    //     for (i = 0; i < pwd.qtd_subdir; i++)
-    //     {
-    //         // se achar o diretorio troca o ponteiro para para ele
-    //         if (strcmp(pwd.subdirectories[i]->direname, arglist[current_arg]) == 0)
-    //         {
-    //             // se existir então percorre seus subdiretorios e verifica se algum bate com o proximo path do arglist
-    //             pwd = *(pwd.subdirectories[i]);
-    //             current_arg++;
-    //             // break; sair só do for, posso usar flag mas é só pra n passar por 256 possiveis dirs (pior caso)
-    //         }
-    //     }
-    //     if (i == pwd.qtd_subdir)
-    //     {
-    //         fprintf(stderr, "ERRO: Diretório %s não existe!\n", arglist[current_arg]);
-    //         return;
-    //     }
-    // }
+    printf("Conteúdo de %s:\n", path);
 
-    // // printa a primeira string e coloca 50 "espaços" antes da segunda string
-    // printf("%-50s %s\n\n", "Arquivos:", "Tamanho:");
-    // for (i = 0; i < pwd.qtd_subdir; i++)
-    // {
-    //     // printar algo que indique que são diretórios
-    //     //  printa o diretório e coloca 50 "espaços" antes do tamanho
-    //     printf("%-50s", pwd.subdirectories[i]);
-    //     printf("%d bytes", SECTOR_SIZE);
-    //     printf("\n");
-    // }
+    for (int i = 0; i < dir->qtd_subdir; i++) {
+        directory *subdir = dir->subdirectories[i];
+        printf("%s\t<DIR>\t%d/%d/%d %d:%d\n",
+               subdir->direname,
+               subdir->creation_time->tm_mday,
+               subdir->creation_time->tm_mon + 1,
+               subdir->creation_time->tm_year + 1900,
+               subdir->creation_time->tm_hour,
+               subdir->creation_time->tm_min);
+        total_dirs++;
+    }
 
-    // while (pwd.head != -1)
-    // {
-    //     printf("%-50s", pwd.head->fp->filename);
-    //     printf("%s bytes", pwd.head->fp->filesize);
-    //     // printar metadados (horario e data de criação)
-    //     printf("\n");
-    //     pwd.head = pwd.head->next;
-    // }
+    file_pointer *fp = dir->head;
+    while (fp != NULL) {
+        printf("%s\t%d\t%d/%d/%d %d:%d\n",
+               fp->fp->filename,
+               fp->fp->filesize,
+               fp->fp->creation_time->tm_mday,
+               fp->fp->creation_time->tm_mon + 1,
+               fp->fp->creation_time->tm_year + 1900,
+               fp->fp->creation_time->tm_hour,
+               fp->fp->creation_time->tm_min);
+        total_files++;
+        total_file_size += fp->fp->filesize;
 
-    // // O simulador deve oferecer um comando verd que exibe os arquivos e subdiretórios do diretório
-    // // indicado como parâmetro. Na listagem, os diretórios devem conter uma (indicação de que são diretórios) e os
-    // // arquivos devem conter (tamanho), além de (data e hora de criação). No final da listagem deve aparecer o (total
-    // // de arquivos e diretórios), o (total do tamanho dos arquivos) e a (quantidade de espaço livre no disco). Lembre-se
-    // // que o espaço vazio dos setores utilizados não pode ser utilizado por outros arquivos ou diretórios, portanto
-    // // não devem entrar na conta do espaço livre. Também deve ser indicado o (tamanho total alocado para
-    // // arquivos e diretórios), incluindo aí o espaço perdido com fragmentação (espaço não usado em setores ocupados).
-    // int free_sectors = 0;
-    // int free_disk_space;
-    // for (i = 0; i < TOTAL_SECTORS; i++)
-    // {
-    //     if (bitmap[i] == 0)
-    //     {
-    //         free_sectors++;
-    //     }
-    // }
-    // free_disk_space = free_sectors * SECTOR_SIZE;
-    // printf("\nEspaço livre em disco: %d bytes", free_disk_space);
+        fp = fp->next;
+    }
 
-    // printf("ve diretorio\n");
+    int total_disk_size = TOTAL_SECTORS * SECTOR_SIZE;
+    for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++) {
+        if (bitmap[i] == 1) {
+            total_disk_size -= SECTOR_SIZE;
+        }
+    }
+    int free_space = total_disk_size;
+
+    printf("\n%d diretório(s)\t%d bytes\n", total_dirs, total_file_size);
+    printf("%d arquivo(s)\t%d bytes livres\n", total_files, free_space);
 }
 
-void seeSectors()
+void seeSectors(char* full_path)
 {
-    printf("ve setores\n");
+    char path[MAX_NAME_LENGTH] = "";
+    char filename[MAX_NAME_LENGTH];
+
+    char *last_backslash = strrchr(full_path, '\\');
+    if (last_backslash == NULL) {
+        strcpy(filename, full_path);
+    } else {
+        strncpy(path, full_path, last_backslash - full_path);
+        path[last_backslash - full_path] = '\0';
+        strcpy(filename, last_backslash + 1);
+    }
+
+    directory *dir = findDirectory(path);
+    if (dir == NULL) {
+        return;
+    }
+
+    file_pointer *fp = dir->head;
+    while (fp != NULL) {
+        if (strcmp(fp->fp->filename, filename) == 0) {
+            printf("Setores ocupados pelo arquivo %s:\n", filename);
+
+            FAT *current_fat = fp->fp->list;
+            for (int i = 0; i < RESERVED_SECTORS; i++) {
+                printf("░ ");
+            }
+            for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++) {
+                int is_occupied_by_file = 0;
+                FAT *temp_fat = current_fat;
+                while (temp_fat != NULL) {
+                    if (temp_fat->index == i) {
+                        is_occupied_by_file = 1;
+                        break;
+                    }
+                    temp_fat = temp_fat->next;
+                }
+
+                if (is_occupied_by_file) {
+                    printf("▇ ");
+                } else {
+                    printf("▢ ");
+                }
+
+                if (i % 64 == 63) {
+                    printf("\n");
+                }
+            }
+            printf("\n");
+
+            return;
+        }
+        fp = fp->next;
+    }
+
+    printf("ERRO: O arquivo %s não existe!\n", filename);
 }
 
 void showMap() { //working
@@ -453,7 +677,7 @@ int main(void)
             break;
 
         case CRIAA:
-            makeFile();
+            createFile(arg);
             break;
 
         case REMOVED:
@@ -461,7 +685,7 @@ int main(void)
             break;
 
         case REMOVEA:
-            removeFile();
+            deleteFile(arg);
             break;
 
         case VERD:
@@ -469,7 +693,7 @@ int main(void)
             break;
 
         case VERSET:
-            seeSectors();
+            seeSectors(arg);
             break;
 
         case MAPA:
