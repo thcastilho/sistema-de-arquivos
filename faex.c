@@ -64,7 +64,7 @@ void initialize_filesystem()
     {
         bitmap[i] = 1;
     }
-    
+
     for (i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
     {
         bitmap[i] = 0;
@@ -93,14 +93,17 @@ void initialize_filesystem()
     printf("root sector: %d\n\n", root.sector);
 }
 
-void makeDir(char *path) {
+void makeDir(char *path)
+{
     int i = 0;
     int j;
     int is_root = 1;
 
     int depth = 0;
-    for (i = 0; i < strlen(path); i++) {
-        if (path[i] == '\\') {
+    for (i = 0; i < strlen(path); i++)
+    {
+        if (path[i] == '\\')
+        {
             depth += 1;
         }
     }
@@ -110,7 +113,8 @@ void makeDir(char *path) {
 
     char *token;
     token = strtok(path, "\\");
-    while (token != NULL) {
+    while (token != NULL)
+    {
         arglist[i] = token;
         token = strtok(NULL, "\\");
         i++;
@@ -118,34 +122,43 @@ void makeDir(char *path) {
 
     directory *pwd = &root;
 
-    for (i = 0; i <= depth; i++) {
+    for (i = 0; i <= depth; i++)
+    {
         int found = 0;
 
-        for (j = 0; j < pwd->qtd_subdir; j++) {
-            if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0) {
+        for (j = 0; j < pwd->qtd_subdir; j++)
+        {
+            if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0)
+            {
                 pwd = pwd->subdirectories[j];
                 found = 1;
                 break;
             }
         }
 
-        if (!found) {
+        if (!found)
+        {
             // se estamos no último nível do caminho e o diretório não foi encontrado, cria o diretório
-            if (i == depth) {
-                for (j = RESERVED_SECTORS; j < TOTAL_SECTORS; j++) {
-                    if (bitmap[j] == 0) {
+            if (i == depth)
+            {
+                for (j = RESERVED_SECTORS; j < TOTAL_SECTORS; j++)
+                {
+                    if (bitmap[j] == 0)
+                    {
                         bitmap[j] = 1;
                         break;
                     }
                 }
 
-                if (j == TOTAL_SECTORS) {
+                if (j == TOTAL_SECTORS)
+                {
                     fprintf(stderr, "ERRO: O sistema está cheio!\n");
                     return;
                 }
 
                 directory *new_dir = (directory *)malloc(sizeof(directory));
-                if (new_dir == NULL) {
+                if (new_dir == NULL)
+                {
                     printf("Erro ao alocar memória para new_dir\n");
                     exit(1); // ou retorne um erro, dependendo do seu fluxo de código
                 }
@@ -153,7 +166,8 @@ void makeDir(char *path) {
                 strcpy(new_dir->direname, arglist[i]);
                 new_dir->sector = j;
                 new_dir->qtd_subdir = 0;
-                for (int k = 0; k < TOTAL_SECTORS; k++) {
+                for (int k = 0; k < TOTAL_SECTORS; k++)
+                {
                     new_dir->subdirectories[k] = NULL;
                 }
                 new_dir->head = NULL;
@@ -167,8 +181,10 @@ void makeDir(char *path) {
                 pwd->qtd_subdir += 1;
                 pwd = new_dir;
 
-                printf("criou diretorio %s no setor %d\n", new_dir->direname, new_dir->sector);
-            } else {
+                printf("Diretório %s criado no setor %d\n", new_dir->direname, new_dir->sector);
+            }
+            else
+            {
                 // se não estamos no último nível do caminho e o diretório não foi encontrado, cancela a operação
                 printf("ERRO: O diretório %s não existe!\n", arglist[i]);
                 return;
@@ -177,8 +193,10 @@ void makeDir(char *path) {
     }
 }
 
-directory* findDirectory(char *path) {
-    if (strcmp(path, "") == 0) {
+directory *findDirectory(char *path)
+{
+    if (strcmp(path, "") == 0)
+    {
         return &root;
     }
 
@@ -186,8 +204,10 @@ directory* findDirectory(char *path) {
     int j;
     int depth = 0;
 
-    for (i = 0; i < strlen(path); i++) {
-        if (path[i] == '\\') {
+    for (i = 0; i < strlen(path); i++)
+    {
+        if (path[i] == '\\')
+        {
             depth++;
         }
     }
@@ -197,7 +217,8 @@ directory* findDirectory(char *path) {
 
     char *token;
     token = strtok(path, "\\");
-    while (token != NULL) {
+    while (token != NULL)
+    {
         arglist[i] = token;
         token = strtok(NULL, "\\");
         i++;
@@ -205,18 +226,22 @@ directory* findDirectory(char *path) {
 
     directory *pwd = &root;
 
-    for (i = 0; i <= depth; i++) {
+    for (i = 0; i <= depth; i++)
+    {
         int found = 0;
 
-        for (j = 0; j < pwd->qtd_subdir; j++) {
-            if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0) {
+        for (j = 0; j < pwd->qtd_subdir; j++)
+        {
+            if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0)
+            {
                 pwd = pwd->subdirectories[j];
                 found = 1;
                 break;
             }
         }
 
-        if (!found) {
+        if (!found)
+        {
             printf("ERRO: O diretório %s não existe!\n", arglist[i]);
             return NULL;
         }
@@ -225,15 +250,19 @@ directory* findDirectory(char *path) {
     return pwd;
 }
 
-void createFile(char *full_path) {
+void createFile(char *full_path)
+{
     char path[MAX_NAME_LENGTH] = "";
     char filename[MAX_NAME_LENGTH];
 
     // Extrai o nome do arquivo e o caminho do diretório
     char *last_backslash = strrchr(full_path, '\\');
-    if (last_backslash == NULL) {
+    if (last_backslash == NULL)
+    {
         strcpy(filename, full_path);
-    } else {
+    }
+    else
+    {
         strncpy(path, full_path, last_backslash - full_path);
         path[last_backslash - full_path] = '\0';
         strcpy(filename, last_backslash + 1);
@@ -241,14 +270,17 @@ void createFile(char *full_path) {
 
     // Encontra o diretório especificado
     directory *dir = findDirectory(path);
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         return;
     }
 
     // Verifica se um arquivo com o mesmo nome já existe no diretório
     file_pointer *fp = dir->head;
-    while (fp != NULL) {
-        if (strcmp(fp->fp->filename, filename) == 0) {
+    while (fp != NULL)
+    {
+        if (strcmp(fp->fp->filename, filename) == 0)
+        {
             printf("ERRO: O arquivo %s já existe!\n", filename);
             return;
         }
@@ -262,7 +294,8 @@ void createFile(char *full_path) {
 
     // Cria um novo arquivo e aloca memória para ele
     file *new_file = (file *)malloc(sizeof(file));
-    if (new_file == NULL) {
+    if (new_file == NULL)
+    {
         printf("Erro ao alocar memória para new_file\n");
         exit(1);
     }
@@ -279,22 +312,29 @@ void createFile(char *full_path) {
     int sectors_needed = (filesize + SECTOR_SIZE - 1) / SECTOR_SIZE;
     FAT *current_fat = NULL;
 
-    for (int i = 0; i < sectors_needed; i++) {
+    for (int i = 0; i < sectors_needed; i++)
+    {
         int sector_found = 0;
-        for (int j = RESERVED_SECTORS; j < TOTAL_SECTORS; j++) {
-            if (bitmap[j] == 0) {
+        for (int j = RESERVED_SECTORS; j < TOTAL_SECTORS; j++)
+        {
+            if (bitmap[j] == 0)
+            {
                 bitmap[j] = 1;
                 FAT *new_fat = (FAT *)malloc(sizeof(FAT));
-                if (new_fat == NULL) {
+                if (new_fat == NULL)
+                {
                     printf("Erro ao alocar memória para new_fat\n");
                     exit(1);
                 }
                 new_fat->index = j;
                 new_fat->next = NULL;
 
-                if (current_fat == NULL) {
+                if (current_fat == NULL)
+                {
                     new_file->list = new_fat;
-                } else {
+                }
+                else
+                {
                     current_fat->next = new_fat;
                 }
                 current_fat = new_fat;
@@ -304,7 +344,8 @@ void createFile(char *full_path) {
             }
         }
 
-        if (!sector_found) {
+        if (!sector_found)
+        {
             printf("ERRO: O sistema está cheio!\n");
             free(new_file);
             return;
@@ -313,7 +354,8 @@ void createFile(char *full_path) {
 
     // Adiciona o arquivo à lista de arquivos do diretório
     file_pointer *new_fp = (file_pointer *)malloc(sizeof(file_pointer));
-    if (new_fp == NULL) {
+    if (new_fp == NULL)
+    {
         printf("Erro ao alocar memória para new_fp\n");
         exit(1);
     }
@@ -325,12 +367,15 @@ void createFile(char *full_path) {
     printf("Criou arquivo %s de tamanho %d bytes\n", new_file->filename, new_file->filesize);
 }
 
-void removeDir(char *path) {
+void removeDir(char *path)
+{
     int i = 0, j;
     int depth = 0;
 
-    for (i = 0; i < strlen(path); i++) {
-        if (path[i] == '\\') {
+    for (i = 0; i < strlen(path); i++)
+    {
+        if (path[i] == '\\')
+        {
             depth += 1;
         }
     }
@@ -338,7 +383,8 @@ void removeDir(char *path) {
     char *arglist[depth + 1]; // número de argumentos (profundidade na árvore)
     i = 0;
     char *token = strtok(path, "\\");
-    while (token != NULL) {
+    while (token != NULL)
+    {
         arglist[i] = token;
         token = strtok(NULL, "\\");
         i++;
@@ -347,11 +393,14 @@ void removeDir(char *path) {
     directory *pwd = &root;
     directory *parent = NULL;
 
-    for (i = 0; i <= depth; i++) {
+    for (i = 0; i <= depth; i++)
+    {
         int found = 0;
 
-        for (j = 0; j < pwd->qtd_subdir; j++) {
-            if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0) {
+        for (j = 0; j < pwd->qtd_subdir; j++)
+        {
+            if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0)
+            {
                 parent = pwd;
                 pwd = pwd->subdirectories[j];
                 found = 1;
@@ -359,13 +408,15 @@ void removeDir(char *path) {
             }
         }
 
-        if (!found) {
+        if (!found)
+        {
             printf("ERRO: O diretório %s não existe!\n", arglist[i]);
             return;
         }
     }
 
-    if (pwd->qtd_subdir != 0 || pwd->head != NULL) {
+    if (pwd->qtd_subdir != 0 || pwd->head != NULL)
+    {
         printf("ERRO: Diretório não está vazio!\n");
         return;
     }
@@ -374,9 +425,12 @@ void removeDir(char *path) {
     bitmap[pwd->sector] = 0;
 
     // remove o diretório do parent
-    for (i = 0; i < parent->qtd_subdir; i++) {
-        if (parent->subdirectories[i] == pwd) {
-            for (j = i; j < parent->qtd_subdir - 1; j++) {
+    for (i = 0; i < parent->qtd_subdir; i++)
+    {
+        if (parent->subdirectories[i] == pwd)
+        {
+            for (j = i; j < parent->qtd_subdir - 1; j++)
+            {
                 parent->subdirectories[j] = parent->subdirectories[j + 1];
             }
             parent->subdirectories[parent->qtd_subdir - 1] = NULL;
@@ -389,37 +443,48 @@ void removeDir(char *path) {
     printf("Diretório removido com sucesso!\n");
 }
 
-void deleteFile(char *full_path) {
+void deleteFile(char *full_path)
+{
     char path[MAX_NAME_LENGTH] = "";
     char filename[MAX_NAME_LENGTH];
 
     char *last_backslash = strrchr(full_path, '\\');
-    if (last_backslash == NULL) {
+    if (last_backslash == NULL)
+    {
         strcpy(filename, full_path);
-    } else {
+    }
+    else
+    {
         strncpy(path, full_path, last_backslash - full_path);
         path[last_backslash - full_path] = '\0';
         strcpy(filename, last_backslash + 1);
     }
 
     directory *dir = findDirectory(path);
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         return;
     }
 
     file_pointer *prev_fp = NULL;
     file_pointer *fp = dir->head;
 
-    while (fp != NULL) {
-        if (strcmp(fp->fp->filename, filename) == 0) {
-            if (prev_fp == NULL) {
+    while (fp != NULL)
+    {
+        if (strcmp(fp->fp->filename, filename) == 0)
+        {
+            if (prev_fp == NULL)
+            {
                 dir->head = fp->next;
-            } else {
+            }
+            else
+            {
                 prev_fp->next = fp->next;
             }
 
             FAT *current_fat = fp->fp->list;
-            while (current_fat != NULL) {
+            while (current_fat != NULL)
+            {
                 bitmap[current_fat->index] = 0;
                 FAT *temp_fat = current_fat;
                 current_fat = current_fat->next;
@@ -443,7 +508,8 @@ void deleteFile(char *full_path) {
 void seeDirectory(char *path)
 {
     directory *dir = findDirectory(path);
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         return;
     }
 
@@ -451,9 +517,10 @@ void seeDirectory(char *path)
     int total_dirs = 0;
     int total_file_size = 0;
 
-    printf("Conteúdo de %s:\n", path);
+    // printf("Conteúdo de %s:\n", path);
 
-    for (int i = 0; i < dir->qtd_subdir; i++) {
+    for (int i = 0; i < dir->qtd_subdir; i++)
+    {
         directory *subdir = dir->subdirectories[i];
         printf("%s\t<DIR>\t%d/%d/%d %d:%d\n",
                subdir->direname,
@@ -466,7 +533,8 @@ void seeDirectory(char *path)
     }
 
     file_pointer *fp = dir->head;
-    while (fp != NULL) {
+    while (fp != NULL)
+    {
         printf("%s\t%d\t%d/%d/%d %d:%d\n",
                fp->fp->filename,
                fp->fp->filesize,
@@ -482,8 +550,10 @@ void seeDirectory(char *path)
     }
 
     int total_disk_size = TOTAL_SECTORS * SECTOR_SIZE;
-    for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++) {
-        if (bitmap[i] == 1) {
+    for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
+    {
+        if (bitmap[i] == 1)
+        {
             total_disk_size -= SECTOR_SIZE;
         }
     }
@@ -493,52 +563,66 @@ void seeDirectory(char *path)
     printf("%d arquivo(s)\t%d bytes livres\n", total_files, free_space);
 }
 
-void seeSectors(char* full_path)
+void seeSectors(char *full_path)
 {
     char path[MAX_NAME_LENGTH] = "";
     char filename[MAX_NAME_LENGTH];
 
     char *last_backslash = strrchr(full_path, '\\');
-    if (last_backslash == NULL) {
+    if (last_backslash == NULL)
+    {
         strcpy(filename, full_path);
-    } else {
+    }
+    else
+    {
         strncpy(path, full_path, last_backslash - full_path);
         path[last_backslash - full_path] = '\0';
         strcpy(filename, last_backslash + 1);
     }
 
     directory *dir = findDirectory(path);
-    if (dir == NULL) {
+    if (dir == NULL)
+    {
         return;
     }
 
     file_pointer *fp = dir->head;
-    while (fp != NULL) {
-        if (strcmp(fp->fp->filename, filename) == 0) {
+    while (fp != NULL)
+    {
+        if (strcmp(fp->fp->filename, filename) == 0)
+        {
             printf("Setores ocupados pelo arquivo %s:\n", filename);
 
             FAT *current_fat = fp->fp->list;
-            for (int i = 0; i < RESERVED_SECTORS; i++) {
+            for (int i = 0; i < RESERVED_SECTORS; i++)
+            {
                 printf("░ ");
             }
-            for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++) {
+            for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
+            {
                 int is_occupied_by_file = 0;
                 FAT *temp_fat = current_fat;
-                while (temp_fat != NULL) {
-                    if (temp_fat->index == i) {
+                while (temp_fat != NULL)
+                {
+                    if (temp_fat->index == i)
+                    {
                         is_occupied_by_file = 1;
                         break;
                     }
                     temp_fat = temp_fat->next;
                 }
 
-                if (is_occupied_by_file) {
+                if (is_occupied_by_file)
+                {
                     printf("▇ ");
-                } else {
+                }
+                else
+                {
                     printf("▢ ");
                 }
 
-                if (i % 64 == 63) {
+                if (i % 64 == 63)
+                {
                     printf("\n");
                 }
             }
@@ -552,32 +636,42 @@ void seeSectors(char* full_path)
     printf("ERRO: O arquivo %s não existe!\n", filename);
 }
 
-void showMap() { //working
-	for (int i = 0; i < RESERVED_SECTORS; i++) {
-		printf ("░ ");
-	}
-    for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++) {
-        if (bitmap[i] == 1) {
+void showMap()
+{ // working
+    for (int i = 0; i < RESERVED_SECTORS; i++)
+    {
+        printf("░ ");
+    }
+    for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
+    {
+        if (bitmap[i] == 1)
+        {
             printf("▇ ");
-        } else {
-            printf("▢ "); 
+        }
+        else
+        {
+            printf("▢ ");
         }
 
-        if (i % 64 == 63) {
+        if (i % 64 == 63)
+        {
             printf("\n");
         }
     }
-	printf("\n");
+    printf("\n");
 }
 
-void printTree(directory *dir, int depth) { //working for directories
+void printTree(directory *dir, int depth)
+{ // working for directories
     int i;
-	for (i = 0; i < depth; i++) {
+    for (i = 0; i < depth; i++)
+    {
         printf("  ");
     }
     printf("%s\n", dir->direname);
 
-    for (i = 0; i < dir->qtd_subdir; i++) {
+    for (i = 0; i < dir->qtd_subdir; i++)
+    {
         printTree(dir->subdirectories[i], depth + 1);
     }
 }
@@ -586,15 +680,15 @@ void showHelp()
 {
     printf("\n\t\t************** FAEX - Ajuda **************\n");
     printf("\t\t------------------------------------------\n");
-    printf("criad [path\\]diretorio\t\t-> cria diretorio\n");
+    printf("criad [path\\]diretório\t\t-> cria diretório\n");
     printf("criaa [path\\]arquivo\t\t-> cria arquivo\n");
-    printf("deletad [path\\]diretorio\t-> deleta diretorio\n");
+    printf("deletad [path\\]diretório\t-> deleta diretório\n");
     printf("deletaa [path\\]arquivo\t\t-> deleta arquivo\n");
-    printf("verd [path]\t\t\t-> mostrar diretorio\n");
+    printf("verd [path]\t\t\t-> mostrar diretório\n");
     printf("verset [path\\]arquivo\t\t-> mostra setores ocupados pelo arquivo\n");
-    printf("arvore\t\t\t\t-> arvore de diretorios\n");
     printf("mapa\t\t\t\t-> mostra tabela de setores\n");
-    printf("ajuda\t\t\t\t-> mostra os comandos disponiveis do sistema\n");
+    printf("arvore\t\t\t\t-> árvore de diretórios\n");
+    printf("ajuda\t\t\t\t-> mostra os comandos disponíveis do sistema\n");
     printf("sair\t\t\t\t-> encerra o programa\n\n");
 }
 
@@ -712,6 +806,7 @@ int main(void)
             exit(0);
 
         default:
+            printf("Comando inválido, tente 'ajuda' para ver os comandos disponíveis\n");
             break;
         }
     }
