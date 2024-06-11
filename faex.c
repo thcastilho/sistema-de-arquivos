@@ -296,6 +296,21 @@ void createFile(char *full_path)
     printf("Digite o tamanho do arquivo em bytes: ");
     scanf("%d", &filesize);
 
+    int total_disk_size = TOTAL_SECTORS * SECTOR_SIZE;
+    for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
+    {
+        if (bitmap[i] == 1)
+        {
+            total_disk_size -= SECTOR_SIZE;	//calcula a quantidade livre do disco
+        }
+    }
+    int free_space = total_disk_size;
+
+    if (filesize > free_space){
+        printf("ERRO: O arquivo é maior do que o espaço disponível no sistema!\n");
+        return;
+    }
+
     // Cria um novo arquivo e aloca memória para ele
     file *new_file = (file *)malloc(sizeof(file));
     if (new_file == NULL)
@@ -318,7 +333,7 @@ void createFile(char *full_path)
 
     for (int i = 0; i < sectors_needed; i++)
     {
-        int sector_found = 0;
+        // int sector_found = 0;
         for (int j = RESERVED_SECTORS; j < TOTAL_SECTORS; j++)
         {
             if (bitmap[j] == 0)	//checa se o setor está livre
@@ -343,17 +358,17 @@ void createFile(char *full_path)
                 }
                 current_fat = new_fat;
 
-                sector_found = 1;
+                // sector_found = 1;
                 break;
             }
         }
 
-        if (!sector_found)
-        {
-            printf("ERRO: O sistema está cheio!\n");
-            free(new_file);
-            return;
-        }
+        // if (!sector_found)
+        // {
+        //     printf("ERRO: O sistema está cheio!\n");
+        //     free(new_file);
+        //     return;
+        // }
     }
 
     // Adiciona o arquivo à lista de arquivos do diretório
@@ -514,10 +529,16 @@ void deleteFile(char *full_path)
 
 void seeDirectory(char *path)
 {
-    directory *dir = findDirectory(path);
-    if (dir == NULL)
-    {
-        return;
+    directory *dir;
+    if (path == NULL){
+        dir = &root;
+    } else {
+        dir = findDirectory(path);
+        if (dir == NULL)
+        {
+            /* ERRO! */
+            return;
+        }
     }
 
     int total_files = 0;
@@ -757,14 +778,15 @@ int main(void)
 
     char *token;
     char *program;
-    char *arg = NULL;
 
     initialize_filesystem();
 
     while (1)
     {
         printf("#");
+        char *arg = NULL;
         char instruction[1024];
+
         if (scanf(" %[^\n]%*c", instruction) == -1)
         {
             printf("exit\n");
