@@ -1,7 +1,8 @@
+#include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <time.h>
-#include <stdio.h>
 
 #define MAX_NAME_LENGTH 64
 
@@ -60,11 +61,13 @@ void initialize_filesystem()
     /* INICIALIZAR OS SETORES */
 
     int i;
+    //inicializa os setores reservados (boot, sistema de arquivos e raiz)
     for (i = 0; i < RESERVED_SECTORS; i++)
     {
         bitmap[i] = 1;
     }
 
+    //incialia o resto dos setores
     for (i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
     {
         bitmap[i] = 0;
@@ -80,7 +83,7 @@ void initialize_filesystem()
     // define a qtd de subdiretorios
     root.qtd_subdir = 0;
 
-    // subdiretorios
+    // incializa os subdiretorios
     for (i = 0; i < TOTAL_SECTORS; i++)
     {
         root.subdirectories[i] = NULL;
@@ -95,8 +98,7 @@ void initialize_filesystem()
 
 void makeDir(char *path)
 {
-    int i = 0;
-    int j;
+    int i, j;
     int is_root = 1;
 
     int depth = 0;
@@ -104,7 +106,7 @@ void makeDir(char *path)
     {
         if (path[i] == '\\')
         {
-            depth += 1;
+            depth += 1;	//calcula a profundidade do dir
         }
     }
 
@@ -115,7 +117,7 @@ void makeDir(char *path)
     token = strtok(path, "\\");
     while (token != NULL)
     {
-        arglist[i] = token;
+        arglist[i] = token;		//preenche arglist com os subdirs
         token = strtok(NULL, "\\");
         i++;
     }
@@ -126,6 +128,7 @@ void makeDir(char *path)
     {
         int found = 0;
 
+        //procura o subdir arglist[i] em pwd
         for (j = 0; j < pwd->qtd_subdir; j++)
         {
             if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0)
@@ -145,7 +148,7 @@ void makeDir(char *path)
                 {
                     if (bitmap[j] == 0)
                     {
-                        bitmap[j] = 1;
+                        bitmap[j] = 1;	//marca o setor como ocupado
                         break;
                     }
                 }
@@ -163,6 +166,7 @@ void makeDir(char *path)
                     exit(1); // ou retorne um erro, dependendo do seu fluxo de código
                 }
 
+                //inicializa o novo subdir
                 strcpy(new_dir->direname, arglist[i]);
                 new_dir->sector = j;
                 new_dir->qtd_subdir = 0;
@@ -177,7 +181,7 @@ void makeDir(char *path)
                 time(&segundos);
                 new_dir->creation_time = localtime(&segundos);
 
-                pwd->subdirectories[pwd->qtd_subdir] = new_dir;
+                pwd->subdirectories[pwd->qtd_subdir] = new_dir;	//insere no dir atual
                 pwd->qtd_subdir += 1;
                 pwd = new_dir;
 
@@ -200,15 +204,14 @@ directory *findDirectory(char *path)
         return &root;
     }
 
-    int i = 0;
-    int j;
+    int i, j;
     int depth = 0;
 
     for (i = 0; i < strlen(path); i++)
     {
         if (path[i] == '\\')
         {
-            depth++;
+            depth++;	//calcula a profundidade do dir
         }
     }
 
@@ -219,7 +222,7 @@ directory *findDirectory(char *path)
     token = strtok(path, "\\");
     while (token != NULL)
     {
-        arglist[i] = token;
+        arglist[i] = token;			//preenche arglist com os subdirs do path
         token = strtok(NULL, "\\");
         i++;
     }
@@ -230,6 +233,7 @@ directory *findDirectory(char *path)
     {
         int found = 0;
 
+        //procura o subdir arglist[i] no pwd
         for (j = 0; j < pwd->qtd_subdir; j++)
         {
             if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0)
@@ -317,7 +321,7 @@ void createFile(char *full_path)
         int sector_found = 0;
         for (int j = RESERVED_SECTORS; j < TOTAL_SECTORS; j++)
         {
-            if (bitmap[j] == 0)
+            if (bitmap[j] == 0)	//checa se o setor está livre
             {
                 bitmap[j] = 1;
                 FAT *new_fat = (FAT *)malloc(sizeof(FAT));
@@ -369,14 +373,14 @@ void createFile(char *full_path)
 
 void removeDir(char *path)
 {
-    int i = 0, j;
+    int i, j;
     int depth = 0;
 
     for (i = 0; i < strlen(path); i++)
     {
         if (path[i] == '\\')
         {
-            depth += 1;
+            depth += 1;	//calcula a profundidade do dir
         }
     }
 
@@ -385,7 +389,7 @@ void removeDir(char *path)
     char *token = strtok(path, "\\");
     while (token != NULL)
     {
-        arglist[i] = token;
+        arglist[i] = token;		//preenche arglist com cada subdir de path
         token = strtok(NULL, "\\");
         i++;
     }
@@ -397,12 +401,13 @@ void removeDir(char *path)
     {
         int found = 0;
 
+        //itera pelos subdirs de pwd procurando por arglist[i]
         for (j = 0; j < pwd->qtd_subdir; j++)
         {
             if (strcmp(pwd->subdirectories[j]->direname, arglist[i]) == 0)
             {
                 parent = pwd;
-                pwd = pwd->subdirectories[j];
+                pwd = pwd->subdirectories[j];	//vai pro subdir do arglist[i]
                 found = 1;
                 break;
             }
@@ -448,6 +453,7 @@ void deleteFile(char *full_path)
     char path[MAX_NAME_LENGTH] = "";
     char filename[MAX_NAME_LENGTH];
 
+    //determina a posição da última barra com essa função
     char *last_backslash = strrchr(full_path, '\\');
     if (last_backslash == NULL)
     {
@@ -455,9 +461,9 @@ void deleteFile(char *full_path)
     }
     else
     {
-        strncpy(path, full_path, last_backslash - full_path);
+        strncpy(path, full_path, last_backslash - full_path);	//copia o path sem o /nome_do_arquivo
         path[last_backslash - full_path] = '\0';
-        strcpy(filename, last_backslash + 1);
+        strcpy(filename, last_backslash + 1);	//copia o nome do arquivo
     }
 
     directory *dir = findDirectory(path);
@@ -469,30 +475,31 @@ void deleteFile(char *full_path)
     file_pointer *prev_fp = NULL;
     file_pointer *fp = dir->head;
 
+    //itera pela lista e procura o arquivo do argumento
     while (fp != NULL)
     {
         if (strcmp(fp->fp->filename, filename) == 0)
         {
             if (prev_fp == NULL)
             {
-                dir->head = fp->next;
+                dir->head = fp->next;	//deleta o arq no começo da lista
             }
             else
             {
-                prev_fp->next = fp->next;
+                prev_fp->next = fp->next;	//deleta em outra posição
             }
 
             FAT *current_fat = fp->fp->list;
             while (current_fat != NULL)
             {
-                bitmap[current_fat->index] = 0;
-                FAT *temp_fat = current_fat;
-                current_fat = current_fat->next;
-                free(temp_fat);
+                bitmap[current_fat->index] = 0;	//muda pra 0 o bit do setor atual
+                FAT *temp_fat = current_fat;	
+                current_fat = current_fat->next;	//vai pro próximo bloco da tabela
+                free(temp_fat);	//libera o bloco anterior
             }
 
             free(fp->fp);
-            free(fp);
+            free(fp);	//libera o arquivo
 
             printf("Arquivo %s excluído\n", filename);
             return;
@@ -518,7 +525,7 @@ void seeDirectory(char *path)
     int total_file_size = 0;
 
     // printf("Conteúdo de %s:\n", path);
-
+    //printa os subdiretorios
     for (int i = 0; i < dir->qtd_subdir; i++)
     {
         directory *subdir = dir->subdirectories[i];
@@ -532,6 +539,7 @@ void seeDirectory(char *path)
         total_dirs++;
     }
 
+    //printa os arquivos
     file_pointer *fp = dir->head;
     while (fp != NULL)
     {
@@ -554,7 +562,7 @@ void seeDirectory(char *path)
     {
         if (bitmap[i] == 1)
         {
-            total_disk_size -= SECTOR_SIZE;
+            total_disk_size -= SECTOR_SIZE;	//calcula a quantidade livre do disco
         }
     }
     int free_space = total_disk_size;
@@ -568,6 +576,7 @@ void seeSectors(char *full_path)
     char path[MAX_NAME_LENGTH] = "";
     char filename[MAX_NAME_LENGTH];
 
+    //determina a posição da última barra com essa função
     char *last_backslash = strrchr(full_path, '\\');
     if (last_backslash == NULL)
     {
@@ -575,9 +584,9 @@ void seeSectors(char *full_path)
     }
     else
     {
-        strncpy(path, full_path, last_backslash - full_path);
+        strncpy(path, full_path, last_backslash - full_path);	//copia o path sem o /nome_do_arquivo
         path[last_backslash - full_path] = '\0';
-        strcpy(filename, last_backslash + 1);
+        strcpy(filename, last_backslash + 1);	//copia o nome do arquivo
     }
 
     directory *dir = findDirectory(path);
@@ -586,27 +595,33 @@ void seeSectors(char *full_path)
         return;
     }
 
-    file_pointer *fp = dir->head;
+    //itera pela lista e procura o arquivo do argumento
+    file_pointer *fp = dir->head; //inicializa fp com o primeiro arq do diretorio 
     while (fp != NULL)
     {
-        if (strcmp(fp->fp->filename, filename) == 0)
+        if (strcmp(fp->fp->filename, filename) == 0) //compara o nome do arquivo atual com o arg
         {
             printf("Setores ocupados pelo arquivo %s:\n", filename);
 
-            FAT *current_fat = fp->fp->list;
+            FAT *current_fat = fp->fp->list;	//inicializa current_fat com o primeiro setor do arq
             for (int i = 0; i < RESERVED_SECTORS; i++)
             {
-                printf("░ ");
+                printf("░ ");	//reservado
             }
+
+            //itera por todos os setores não reservados
             for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
             {
-                int is_occupied_by_file = 0;
+                bool is_occupied_by_file = false;
                 FAT *temp_fat = current_fat;
+
+                //pra cada setor do sistema de arquivos, itera pela tabela FAT do
+                //arquivo e checa se o bloco atual é igual ao setor i
                 while (temp_fat != NULL)
                 {
                     if (temp_fat->index == i)
                     {
-                        is_occupied_by_file = 1;
+                        is_occupied_by_file = true;	//se for, significa q o arq ocupa esse setor
                         break;
                     }
                     temp_fat = temp_fat->next;
@@ -614,23 +629,23 @@ void seeSectors(char *full_path)
 
                 if (is_occupied_by_file)
                 {
-                    printf("▇ ");
+                    printf("▇ ");	//ocupado
                 }
                 else
                 {
-                    printf("▢ ");
+                    printf("▢ ");	//nao ocupado
                 }
 
                 if (i % 64 == 63)
                 {
-                    printf("\n");
+                    printf("\n");	//quebra a linha
                 }
             }
             printf("\n");
 
             return;
         }
-        fp = fp->next;
+        fp = fp->next;	//vai pro próximo elemento
     }
 
     printf("ERRO: O arquivo %s não existe!\n", filename);
@@ -640,22 +655,22 @@ void showMap()
 { // working
     for (int i = 0; i < RESERVED_SECTORS; i++)
     {
-        printf("░ ");
+        printf("░ ");	//reservado
     }
     for (int i = RESERVED_SECTORS; i < TOTAL_SECTORS; i++)
     {
         if (bitmap[i] == 1)
         {
-            printf("▇ ");
+            printf("▇ ");	//ocupado
         }
         else
         {
-            printf("▢ ");
+            printf("▢ ");	//nao ocupado
         }
 
         if (i % 64 == 63)
         {
-            printf("\n");
+            printf("\n");	//quebra a linha
         }
     }
     printf("\n");
@@ -663,14 +678,13 @@ void showMap()
 
 void printTree(directory *dir, int depth)
 { // working for directories
-    int i;
-    for (i = 0; i < depth; i++)
+    for (int i = 0; i < depth; i++)
     {
         printf("  ");
     }
     printf("%s\n", dir->direname);
 
-    for (i = 0; i < dir->qtd_subdir; i++)
+    for (int i = 0; i < dir->qtd_subdir; i++)
     {
         printTree(dir->subdirectories[i], depth + 1);
     }
@@ -757,6 +771,7 @@ int main(void)
             exit(0);
         }
 
+        //tokeniza a string de entrada, separando o comando e o argumento
         token = strtok(instruction, " ");
         program = token;
         if ((token = strtok(NULL, " ")) != NULL)
@@ -764,6 +779,7 @@ int main(void)
             arg = token;
         }
 
+        //retorna um int pra cada comando possível
         switch (hash(program))
         {
         case CRIAD:
@@ -810,4 +826,6 @@ int main(void)
             break;
         }
     }
+
+    return 0;
 }
